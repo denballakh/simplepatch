@@ -1,0 +1,107 @@
+// Git unified diff format grammar
+// https://lark-parser.readthedocs.io/en/stable/tree_construction.html
+
+?start: git_patch
+
+git_patch: (commit_header | submodule_diff | file_diff | _NEWLINE)*
+
+// Commit header (optional, from git format-patch)
+commit_header: from_line author_line date_line subject_line _NEWLINE?
+    from_line: "From" _WS COMMIT_HASH _WS REST_OF_LINE _NEWLINE
+    author_line: "From:" _WS REST_OF_LINE _NEWLINE
+    date_line: "Date:" _WS REST_OF_LINE _NEWLINE
+    subject_line: "Subject:" _WS REST_OF_LINE _NEWLINE
+
+// Submodule diff - changes in a git submodule
+submodule_diff: submodule_header file_diff*
+    submodule_header: "Submodule" _WS FILE_PATH _WS SUBMODULE_RANGE ":" _NEWLINE
+
+// File diff - can be a regular diff, binary diff, or rename-only
+file_diff: diff_header extended_header* file_content
+    diff_header: "diff --git" _WS git_path _WS git_path _NEWLINE
+    
+    // Extended header lines (optional)
+    ?extended_header: index_line
+                    | old_mode_line
+                    | new_mode_line
+                    | deleted_file_mode_line
+                    | new_file_mode_line
+                    | similarity_index_line
+                    | rename_from_line
+                    | rename_to_line
+    
+    index_line: "index" _WS INDEX_HASH ".." INDEX_HASH (_WS FILE_MODE)? _NEWLINE
+    old_mode_line: "old mode" _WS FILE_MODE _NEWLINE
+    new_mode_line: "new mode" _WS FILE_MODE _NEWLINE
+    deleted_file_mode_line: "deleted file mode" _WS FILE_MODE _NEWLINE
+    new_file_mode_line: "new file mode" _WS FILE_MODE _NEWLINE
+    similarity_index_line: "similarity index" _WS PERCENTAGE "%" _NEWLINE
+    rename_from_line: "rename from" _WS FILE_PATH _NEWLINE
+    rename_to_line: "rename to" _WS FILE_PATH _NEWLINE
+    
+    // File content - either binary patch, regular hunks, or nothing (rename-only)
+    ?file_content: git_binary_patch
+                 | text_diff
+                 | empty_content
+    
+    text_diff: file_header hunks
+    
+    // Git binary patch format
+    git_binary_patch: "GIT binary patch" _NEWLINE binary_patch_data (_NEWLINE binary_patch_data)? _NEWLINE?
+    
+    binary_patch_data: binary_patch_header binary_data_lines
+    binary_patch_header: BINARY_PATCH_TYPE _WS NUMBER _NEWLINE
+    binary_data_lines: binary_data_line*
+    binary_data_line: BINARY_DATA_LINE _NEWLINE
+    
+    empty_content:
+    
+    // File header (--- and +++ lines)
+    file_header: old_file_line new_file_line
+    old_file_line: "---" _WS file_path_spec _NEWLINE
+    new_file_line: "+++" _WS file_path_spec _NEWLINE
+    
+    file_path_spec: "/dev/null" -> dev_null
+                  | git_path
+
+// Hunks
+hunks: hunk*
+
+hunk: hunk_header hunk_lines
+    hunk_header: "@@" _WS hunk_range _WS hunk_range _WS "@@" HUNK_CONTEXT? _NEWLINE
+    hunk_range: SIGN NUMBER ("," NUMBER)?
+    
+    hunk_lines: hunk_line*
+    ?hunk_line: context_line
+              | added_line
+              | removed_line
+              | no_newline_line
+    
+    context_line: SPACE LINE_CONTENT? _NEWLINE
+    added_line: PLUS LINE_CONTENT? _NEWLINE
+    removed_line: MINUS LINE_CONTENT? _NEWLINE
+    no_newline_line: "\\ No newline at end of file" _NEWLINE?
+
+// Git path (a/path or b/path)
+git_path: GIT_PATH_PREFIX FILE_PATH
+GIT_PATH_PREFIX: /[ab]\//
+
+// Terminals
+_WS: /[ \t]+/
+_NEWLINE: "\n"
+SPACE: " "
+PLUS: "+"
+MINUS: "-"
+SIGN: /[+-]/
+NUMBER: /[0-9]+/
+FILE_MODE: /[0-7]{6}/
+COMMIT_HASH: /[0-9a-f]{40}/
+INDEX_HASH: /[0-9a-f]{3,40}/
+SUBMODULE_RANGE: /[0-9a-f]+\.\.[0-9a-f]+/
+PERCENTAGE: /[0-9]+/
+FILE_PATH: /[^\n\r\t ]+/
+LINE_CONTENT: /[^\n\r]+/
+REST_OF_LINE: /[^\n\r]+/
+HUNK_CONTEXT: /[^\n\r]+/
+BINARY_PATCH_TYPE.2: "literal" | "delta"
+BINARY_DATA_LINE: /(?!literal |delta )[A-Za-z][^\n]*/

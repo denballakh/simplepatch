@@ -1,0 +1,16 @@
+---
+name: general
+---
+
+Description of the project is in `README.md`.
+
+Use `just` for running standard commands:
+- `just test` - run all tests
+- `just test-pytest <ARGS>` - run only pytest
+- `just cli <ARGS>` - run simplepatch cli
+- `just cli --help` - get help for cli
+- `just py <ARGS>` - run python interpreter with dependecies preinstalled.
+
+For throwaway files use `scratch.py` file and run it with `just py scratch.py`.
+
+Prefer parametrized tests, with test data stored in plaintext files, so that new test cases can be added simply.

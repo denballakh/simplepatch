@@ -1,0 +1,33 @@
+{
+  'patch_text': '!file\n'
+    '=c\n'
+    '+a\n'
+    '#x\n'
+    '-b\n'
+    '=c\n',
+  'result': PatchFile(
+    chunks=[
+      EditOperation(
+        path='file',
+        line_hint=(
+          None,
+          None,
+        ),
+        lines=[
+          ContextLine(
+            content='c\n',
+          ),
+          AddedLine(
+            content='a\n',
+          ),
+          RemovedLine(
+            content='b\n',
+          ),
+          ContextLine(
+            content='c\n',
+          ),
+        ],
+      ),
+    ],
+  ),
+}

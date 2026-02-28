@@ -1,0 +1,56 @@
+// https://lark-parser.readthedocs.io/en/stable/tree_construction.html
+
+?start: patch_file
+
+patch_file: (comment_line | empty_line)* chunk*
+
+chunk: header hunk_line*
+    ?header: "!" operation _NEWLINE
+        ?operation: edit_op
+                | create_op
+                | delete_op
+                | rename_op
+                | chmod_op
+
+            path: PATH
+
+            edit_op: path (_WS line_hint)?
+                line_hint: "@" NUMBER
+                         | "@" NUMBER "->" NUMBER
+
+            // !-> file
+            create_op: "->" _WS path
+
+            // !file ->
+            delete_op: path _WS "->"
+
+            // !old -> new
+            rename_op: path _WS "->" _WS path
+
+            // !file %old->new
+            chmod_op: path _WS "%" OCTAL_MODE "->" OCTAL_MODE
+
+    ?hunk_line: context_line
+            | removed_line
+            | added_line
+            | binary_line
+            | comment_line
+            | empty_line
+
+        context_line: "=" LINE_CONTENT? _NEWLINE
+        removed_line: "-" LINE_CONTENT? _NEWLINE
+        added_line:   "+" LINE_CONTENT? _NEWLINE
+        binary_line:  "z" LINE_CONTENT? _NEWLINE
+        comment_line: "#" LINE_CONTENT? _NEWLINE
+        empty_line:                     _NEWLINE
+
+
+_WS:      /[ \t]+/
+_NEWLINE: "\n"
+
+NUMBER: /[0-9]+/
+OCTAL_MODE: /[0-7]{3}/
+LINE_CONTENT: /[^\n\r]+/
+PATH: PATH_COMPONENT ("/" PATH_COMPONENT)* "/"?
+PATH_COMPONENT: /[a-zA-Z0-9_.][a-zA-Z0-9_.\-]*/
+
